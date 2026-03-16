@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>ZENO 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ─── RESET & ROOT ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+
+:root {
+  --bg: #080808;
+  --bg2: #101010;
+  --bg3: #181818;
+  --surface: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.15);
+  --text: #ffffff;
+  --text-dim: rgba(255,255,255,0.45);
+  --text-muted: rgba(255,255,255,0.2);
+  --accent: #ffffff;
+  --glow: rgba(255,255,255,0.12);
+  --glow-strong: rgba(255,255,255,0.25);
+  --font-display: 'Bebas Neue', cursive;
+  --font-ui: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --orb-size: min(52vw, 240px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ─── NOISE OVERLAY ────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.5;
+}
+
+/* ─── HEADER ───────────────────────────────────────── */
+.header {
+  position: relative; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 12px;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 32px;
+  letter-spacing: 6px;
+  color: var(--text);
+  line-height: 1;
+}
+
+.header-right { display: flex; align-items: center; gap: 10px; }
+
+.icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.icon-btn:hover, .icon-btn:active { border-color: var(--border2); color: var(--text); background: rgba(255,255,255,0.08); }
+
+/* ─── STATUS LINE ──────────────────────────────────── */
+.status-line {
+  position: relative; z-index: 20;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 0 24px 8px;
+  flex-shrink: 0;
+  transition: color 0.3s;
+}
+
+/* ─── MAIN LAYOUT ──────────────────────────────────── */
+.app-body {
+  flex: 1;
+  display: flex;
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Phone: stacked. Tablet landscape: side by side */
+@media (orientation: landscape) and (min-width: 768px) {
+  .app-body { flex-direction: row; }
+  .voice-panel { flex: 0 0 45%; border-right: 1px solid var(--border); }
+  .chat-panel { flex: 1; display: flex !important; flex-direction: column; }
+  :root { --orb-size: min(30vw, 200px); }
+}
+
+/* ─── VOICE PANEL ──────────────────────────────────── */
+.voice-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  min-width: 0;
+  position: relative;
+}
+
+/* ─── ORB ──────────────────────────────────────────── */
+.orb-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  position: relative;
+  width: 100%;
+}
+
+/* Rings */
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.06);
+  pointer-events: none;
+}
+
+.ring-1 {
+  width: calc(var(--orb-size) + 60px);
+  height: calc(var(--orb-size) + 60px);
+  animation: ring-pulse 3s ease-in-out infinite;
+}
+
+.ring-2 {
+  width: calc(var(--orb-size) + 120px);
+  height: calc(var(--orb-size) + 120px);
+  animation: ring-pulse 3s ease-in-out infinite 0.5s;
+}
+
+.ring-3 {
+  width: calc(var(--orb-size) + 180px);
+  height: calc(var(--orb-size) + 180px);
+  animation: ring-pulse 3s ease-in-out infinite 1s;
+  border-color: rgba(255,255,255,0.03);
+}
+
+@keyframes ring-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 0.2; transform: scale(1.02); }
+}
+
+/* Main orb */
+.orb {
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border-radius: 50%;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.orb-inner {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%,
+    rgba(255,255,255,0.12) 0%,
+    rgba(255,255,255,0.04) 40%,
+    rgba(255,255,255,0.02) 70%,
+    transparent 100%
+  );
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow:
+    0 0 60px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -1px 0 rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Orb state: idle */
+[data-state="idle"] .orb-inner {
+  animation: breathe 4s ease-in-out infinite;
+}
+[data-state="idle"] .ring-1 { animation-duration: 4s; }
+
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 0 40px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.1);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 80px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.15);
+    transform: scale(1.03);
+  }
+}
+
+/* Orb state: listening */
+[data-state="listening"] .orb-inner {
+  animation: listen-pulse 1s ease-in-out infinite;
+  border-color: rgba(255,255,255,0.5);
+  box-shadow: 0 0 80px rgba(255,255,255,0.2), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+[data-state="listening"] .ring {
+  animation-duration: 1s !important;
+  border-color: rgba(255,255,255,0.12);
+}
+
+@keyframes listen-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 60px rgba(255,255,255,0.15); }
+  50% { transform: scale(1.06); box-shadow: 0 0 100px rgba(255,255,255,0.3); }
+}
+
+/* Orb state: thinking */
+[data-state="thinking"] .orb-inner {
+  animation: think-spin 1.5s linear infinite;
+}
+
+@keyframes think-spin {
+  from { box-shadow: 0 0 60px rgba(255,255,255,0.15), 20px -10px 40px rgba(255,255,255,0.08); }
+  25% { box-shadow: 10px 20px 60px rgba(255,255,255,0.15), -20px -10px 40px rgba(255,255,255,0.08); }
+  50% { box-shadow: -20px 10px 60px rgba(255,255,255,0.15), 20px 20px 40px rgba(255,255,255,0.08); }
+  75% { box-shadow: -10px -20px 60px rgba(255,255,255,0.15), 20px -20px 40px rgba(255,255,255,0.08); }
+  to { box-shadow: 0 0 60px rgba(255,255,255,0.15), 20px -10px 40px rgba(255,255,255,0.08); }
+}
+
+/* Orb state: speaking */
+[data-state="speaking"] .orb-inner {
+  animation: speak-wave 0.6s ease-in-out infinite alternate;
+  border-color: rgba(255,255,255,0.4);
+  box-shadow: 0 0 100px rgba(255,255,255,0.25);
+}
+
+@keyframes speak-wave {
+  from { transform: scale(1); box-shadow: 0 0 80px rgba(255,255,255,0.2); }
+  to { transform: scale(1.08); box-shadow: 0 0 120px rgba(255,255,255,0.35); }
+}
+
+[data-state="speaking"] .ring-1 { animation-duration: 0.8s !important; border-color: rgba(255,255,255,0.1); }
+[data-state="speaking"] .ring-2 { animation-duration: 1.2s !important; }
+
+/* Orb canvas for visualizer */
+#orb-canvas {
+  position: absolute;
+  width: 80%; height: 80%;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+[data-state="speaking"] #orb-canvas,
+[data-state="listening"] #orb-canvas { opacity: 0.7; }
+
+/* Orb center icon */
+.orb-icon {
+  font-size: calc(var(--orb-size) * 0.22);
+  pointer-events: none;
+  transition: opacity 0.3s;
+  position: relative;
+  z-index: 2;
+}
+
+[data-state="listening"] .orb-icon,
+[data-state="speaking"] .orb-icon { opacity: 0; }
+
+/* Last message preview */
+.last-msg {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 300px;
+  line-height: 1.5;
+  margin-top: 20px;
+  min-height: 40px;
+  padding: 0 8px;
+  transition: opacity 0.3s;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── BOTTOM CONTROLS ──────────────────────────────── */
+.controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+/* Mode toggles row */
+.mode-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.toggle-pill {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  overflow: hidden;
+  padding: 3px;
+  gap: 2px;
+}
+
+.toggle-opt {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.toggle-opt.active {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* Main action row */
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Side action buttons */
+.side-btn {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.side-btn:active { transform: scale(0.93); background: rgba(255,255,255,0.08); }
+.side-btn.active-mode { border-color: rgba(255,255,255,0.4); color: var(--text); background: rgba(255,255,255,0.08); }
+
+/* Mic button */
+.mic-btn {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  background: var(--text);
+  border: none;
+  color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 26px;
+  transition: all 0.2s;
+  box-shadow: 0 0 0 0 rgba(255,255,255,0.3);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.mic-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 60%);
+  border-radius: 50%;
+}
+
+.mic-btn:active { transform: scale(0.94); }
+
+[data-state="listening"] .mic-btn {
+  background: var(--text);
+  box-shadow: 0 0 0 8px rgba(255,255,255,0.08), 0 0 40px rgba(255,255,255,0.2);
+  animation: mic-ring 1s ease-in-out infinite;
+}
+
+@keyframes mic-ring {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(255,255,255,0.1), 0 0 30px rgba(255,255,255,0.15); }
+  50% { box-shadow: 0 0 0 12px rgba(255,255,255,0.05), 0 0 50px rgba(255,255,255,0.25); }
+}
+
+/* Hands-free indicator */
+.hf-indicator {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hf-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  transition: all 0.3s;
+}
+
+.hf-indicator.active .hf-dot {
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: blink 1.5s infinite;
+}
+
+.hf-indicator.active { color: rgba(255,255,255,0.5); }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ─── CHAT PANEL ───────────────────────────────────── */
+.chat-panel {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* On phone, chat mode shows chat panel fullscreen */
+body.chat-mode .voice-panel { display: none; }
+body.chat-mode .chat-panel { display: flex !important; }
+
+/* On tablet landscape, always show chat panel */
+@media (orientation: landscape) and (min-width: 768px) {
+  body.chat-mode .voice-panel { display: flex; }
+  .chat-panel { display: flex !important; }
+}
+
+.chat-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+  min-height: 0;
+}
+
+.chat-messages::-webkit-scrollbar { width: 2px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 1px; }
+
+.chat-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+}
+
+.chat-empty-state .e-icon { font-size: 28px; opacity: 0.3; margin-bottom: 4px; }
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: msg-in 0.25s ease forwards;
+  opacity: 0;
+}
+
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg.user { align-items: flex-end; }
+.msg.ai { align-items: flex-start; }
+
+.msg-bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.msg.user .msg-bubble {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px 4px 16px 16px;
+  color: var(--text);
+}
+
+.msg.ai .msg-bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px 16px 16px 16px;
+  color: rgba(255,255,255,0.88);
+}
+
+.msg-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  padding: 0 4px;
+}
+
+/* Typing indicator */
+.typing-bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px 16px 16px 16px;
+  padding: 12px 16px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.t-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: tdot 1.2s infinite;
+}
+.t-dot:nth-child(2){ animation-delay:0.2s; }
+.t-dot:nth-child(3){ animation-delay:0.4s; }
+@keyframes tdot {
+  0%,80%,100%{ transform:scale(0.6); opacity:0.3; }
+  40%{ transform:scale(1.1); opacity:0.9; }
+}
+
+/* Chat input */
+.chat-input-bar {
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.chat-input-bar textarea {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 10px 16px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  min-height: 42px;
+  max-height: 120px;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+
+.chat-input-bar textarea:focus { border-color: var(--border2); }
+.chat-input-bar textarea::placeholder { color: var(--text-muted); }
+
+.chat-send {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--text);
+  border: none;
+  color: var(--bg);
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.chat-send:disabled { opacity: 0.3; cursor: not-allowed; }
+.chat-send:active { transform: scale(0.92); }
+
+/* ─── OVERLAYS ─────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  z-index: 100;
+  background: rgba(8,8,8,0.95);
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.overlay.open { transform: translateY(0); }
+
+.overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.overlay-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: 4px;
+}
+
+.overlay-close {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.overlay-body::-webkit-scrollbar { width: 2px; }
+.overlay-body::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* Notes */
+.note-item {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.75);
+  position: relative;
+  animation: msg-in 0.3s ease forwards;
+}
+
+.note-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.note-del {
+  position: absolute; top: 10px; right: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.note-item:hover .note-del { opacity: 1; }
+
+.empty-notes {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* Mood log */
+.mood-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mood-emoji { font-size: 24px; }
+.mood-info { flex: 1; }
+.mood-label { font-size: 15px; font-weight: 500; color: var(--text); }
+.mood-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); letter-spacing: 1px; margin-top: 2px; }
+
+/* Settings */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-label { font-size: 15px; font-weight: 500; }
+.setting-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+.danger-btn {
+  padding: 10px 20px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.danger-btn:active { background: rgba(239,68,68,0.2); }
+
+/* ─── TOAST ────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: calc(20px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  z-index: 999;
+  transition: transform 0.3s ease;
+  white-space: nowrap;
+  max-width: 90vw;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ─── TRANSCRIPT POPUP ─────────────────────────────── */
+.transcript-pop {
+  position: fixed;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 10px 18px;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+  max-width: 80vw;
+  text-align: center;
+  z-index: 50;
+  display: none;
+}
+
+.transcript-pop.show { display: block; animation: msg-in 0.2s ease; }
+
+/* ─── SECTION DIVIDER ──────────────────────────────── */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+</style>
+</head>
+<body data-state="idle">
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div class="header">
+  <div class="logo">ZENO <span style="font-size:14px;letter-spacing:3px;color:rgba(255,255,255,0.35);vertical-align:middle;">2.0</span></div>
+  <div class="header-right">
+    <button class="icon-btn" onclick="openOverlay('notes')" title="Notes">📝</button>
+    <button class="icon-btn" onclick="openOverlay('mood')" title="Mood Log">🌙</button>
+    <button class="icon-btn" onclick="openOverlay('settings')" title="Settings">⚙️</button>
+  </div>
+</div>
+
+<div class="status-line" id="status-line">Yaar Mode · Ready</div>
+
+<div class="app-body">
+
+  <!-- ── VOICE PANEL ── -->
+  <div class="voice-panel">
+    <div class="orb-wrap">
+      <div class="ring ring-3"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-1"></div>
+      <div class="orb" id="orb" onclick="orbTap()">
+        <div class="orb-inner">
+          <canvas id="orb-canvas"></canvas>
+          <span class="orb-icon">✦</span>
+        </div>
+      </div>
+      <div class="last-msg" id="last-msg">Tap the orb or mic to start talking</div>
+    </div>
+
+    <div class="controls">
+      <!-- Mode toggles -->
+      <div class="mode-row">
+        <div class="toggle-pill" id="personality-toggle">
+          <button class="toggle-opt active" onclick="setMode('yaar', this)">Yaar</button>
+          <button class="toggle-opt" onclick="setMode('focus', this)">Focus</button>
+        </div>
+        <div class="toggle-pill" id="input-toggle">
+          <button class="toggle-opt active" onclick="setInputMode('voice', this)">🎙 Voice</button>
+          <button class="toggle-opt" onclick="setInputMode('chat', this)">💬 Chat</button>
+        </div>
+      </div>
+
+      <!-- Action row -->
+      <div class="action-row">
+        <button class="side-btn" id="hf-btn" onclick="toggleHandsFree()" title="Hands-free">🎧</button>
+        <button class="mic-btn" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording(event)" ontouchend="stopRecording(event)">🎙</button>
+        <button class="side-btn" onclick="openOverlay('notes')" title="Notes">📋</button>
+      </div>
+
+      <!-- Hands-free indicator -->
+      <div class="hf-indicator" id="hf-indicator">
+        <div class="hf-dot"></div>
+        <span id="hf-label">Hands-free Off</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHAT PANEL ── -->
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">
+      <span>Conversation</span>
+      <button class="icon-btn" style="width:28px;height:28px;font-size:12px;" onclick="clearChat()">🗑</button>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-empty-state" id="chat-empty">
+        <div class="e-icon">✦</div>
+        <div>Start talking or typing.<br/>Zeno is ready.</div>
+      </div>
+    </div>
+    <div class="chat-input-bar">
+      <textarea id="chat-input" placeholder="Type a message…" rows="1"
+        oninput="resizeChatInput(this)"
+        onkeydown="chatKey(event)"></textarea>
+      <button class="chat-send" onclick="sendChatMsg()" id="chat-send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ OVERLAYS ═══════════════ -->
+
+<!-- Notes -->
+<div class="overlay" id="overlay-notes">
+  <div class="overlay-header">
+    <div class="overlay-title">NOTES</div>
+    <button class="overlay-close" onclick="closeOverlay('notes')">✕</button>
+  </div>
+  <div class="overlay-body" id="notes-body">
+    <div class="empty-notes">No notes yet.<br/>Zeno will auto-save important things from your conversations.</div>
+  </div>
+</div>
+
+<!-- Mood -->
+<div class="overlay" id="overlay-mood">
+  <div class="overlay-header">
+    <div class="overlay-title">MOOD LOG</div>
+    <button class="overlay-close" onclick="closeOverlay('mood')">✕</button>
+  </div>
+  <div class="overlay-body" id="mood-body">
+    <div class="empty-notes">No mood data yet.<br/>Zeno tracks your vibe as you chat.</div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="overlay-settings">
+  <div class="overlay-header">
+    <div class="overlay-title">SETTINGS</div>
+    <button class="overlay-close" onclick="closeOverlay('settings')">✕</button>
+  </div>
+  <div class="overlay-body">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Voice</div>
+        <div class="setting-desc">Zeno's TTS voice</div>
+      </div>
+      <select id="voice-select" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-family:var(--font-mono);font-size:11px;outline:none;cursor:pointer;">
+        <option value="tara">Tara (Female)</option>
+        <option value="leah">Leah (Female)</option>
+        <option value="leo">Leo (Male)</option>
+        <option value="dan">Dan (Male)</option>
+        <option value="mia">Mia (Female)</option>
+        <option value="zac">Zac (Male)</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Auto Notes</div>
+        <div class="setting-desc">Save important things automatically</div>
+      </div>
+      <button class="toggle-pill" id="auto-notes-toggle" onclick="toggleAutoNotes()" style="padding:3px;">
+        <span class="toggle-opt active" id="auto-notes-label" style="padding:6px 14px;">ON</span>
+      </button>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Memory</div>
+        <div class="setting-desc" id="memory-info">Loading...</div>
+      </div>
+      <button class="danger-btn" onclick="clearMemory()">Clear Memory</button>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Voice Response</div>
+        <div class="setting-desc">Zeno speaks back in voice mode</div>
+      </div>
+      <button class="toggle-pill" id="voice-resp-toggle" onclick="toggleVoiceResp()" style="padding:3px;">
+        <span class="toggle-opt active" id="voice-resp-label" style="padding:6px 14px;">ON</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Transcript popup -->
+<div class="transcript-pop" id="transcript-pop"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════
+const GROQ_KEY = "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";
+const CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
+const STT_URL  = "https://api.groq.com/openai/v1/audio/transcriptions";
+const TTS_URL  = "https://api.groq.com/openai/v1/audio/speech";
+const CHAT_MODEL = "llama-3.3-70b-versatile";
+const STT_MODEL  = "whisper-large-v3-turbo";
+const TTS_MODEL  = "canopylabs/orpheus-v1-english";
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let appState       = 'idle';    // idle | listening | thinking | speaking
+let personality    = 'yaar';    // yaar | focus
+let inputMode      = 'voice';   // voice | chat
+let handsFreeMod   = false;
+let autoNotes      = true;
+let voiceResp      = true;
+let isBusy         = false;
+
+let mediaRecorder  = null;
+let audioChunks    = [];
+let audioStream    = null;
+let audioCtx       = null;
+let analyserNode   = null;
+let hfTimer        = null;
+let hfSpeaking     = false;
+let hfSilenceTimer = null;
+let currentAudio   = null;
+
+let convHistory    = [];  // [{role, content}]
+let notes          = [];
+let moodLog        = [];
+let messageCount   = 0;
+
+const SILENCE_THRESHOLD = 12;
+const SILENCE_DURATION  = 1600;
+const MAX_HISTORY       = 24;
+
+// ═══════════════════════════════════════════════════
+//  SYSTEM PROMPTS
+// ═══════════════════════════════════════════════════
+function getSystemPrompt() {
+  if (personality === 'yaar') {
+    return `You are Zeno, a chill and funny AI best friend. You talk in a mix of Hinglish (Hindi + English) naturally - like a real Indian Gen Z friend would. 
+Rules:
+- Be casual, funny, sometimes sarcastic but never mean
+- Use Hinglish naturally: yaar, bhai, kya baat hai, chal, thik hai, etc mixed with English
+- Keep responses SHORT - 1-3 sentences usually. Never write paragraphs unless asked
+- Be genuinely helpful but in a desi bro way
+- Roast gently when appropriate 😂
+- Use emojis occasionally but not excessively
+- Remember context from earlier in the conversation
+- Never say you're an AI repeatedly - just vibe naturally`;
+  } else {
+    return `You are Zeno in Focus Mode - a sharp, clear, and efficient AI assistant.
+Rules:
+- Be direct and concise. No fluff
+- Responses are structured and clear
+- English only in focus mode
+- Give precise answers, step-by-step when needed
+- Professional but not cold
+- Never unnecessary small talk in this mode
+- Be the most helpful version possible`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  LOCALSTORAGE MEMORY
+// ═══════════════════════════════════════════════════
+function loadMemory() {
+  try {
+    const h = localStorage.getItem('zeno_history');
+    const n = localStorage.getItem('zeno_notes');
+    const m = localStorage.getItem('zeno_mood');
+    const s = localStorage.getItem('zeno_settings');
+
+    if (h) convHistory = JSON.parse(h);
+    if (n) notes = JSON.parse(n);
+    if (m) moodLog = JSON.parse(m);
+    if (s) {
+      const settings = JSON.parse(s);
+      autoNotes = settings.autoNotes !== undefined ? settings.autoNotes : true;
+      voiceResp = settings.voiceResp !== undefined ? settings.voiceResp : true;
+      const vs = document.getElementById('voice-select');
+      if (settings.voice) vs.value = settings.voice;
+    }
+
+    updateMemoryInfo();
+  } catch(e) { console.log('Memory load err:', e); }
+}
+
+function saveMemory() {
+  try {
+    if (convHistory.length > MAX_HISTORY) convHistory = convHistory.slice(-MAX_HISTORY);
+    localStorage.setItem('zeno_history', JSON.stringify(convHistory));
+    localStorage.setItem('zeno_notes', JSON.stringify(notes));
+    localStorage.setItem('zeno_mood', JSON.stringify(moodLog));
+    localStorage.setItem('zeno_settings', JSON.stringify({
+      autoNotes, voiceResp,
+      voice: document.getElementById('voice-select').value
+    }));
+  } catch(e) {}
+}
+
+function clearMemory() {
+  if (!confirm('Zeno will forget everything. Sure?')) return;
+  convHistory = []; notes = []; moodLog = [];
+  localStorage.clear();
+  clearChat();
+  renderNotes();
+  renderMoodLog();
+  updateMemoryInfo();
+  showToast('Memory cleared. Fresh start 🌱');
+}
+
+function updateMemoryInfo() {
+  const el = document.getElementById('memory-info');
+  const msgs = convHistory.length;
+  const kb = Math.round(JSON.stringify(convHistory).length / 1024);
+  el.textContent = `${msgs} messages stored · ~${kb}KB`;
+}
+
+// ═══════════════════════════════════════════════════
+//  GROQ API CALLS
+// ═══════════════════════════════════════════════════
+async function callChat(userMsg) {
+  convHistory.push({ role: 'user', content: userMsg });
+
+  const messages = [
+    { role: 'system', content: getSystemPrompt() },
+    ...convHistory
+  ];
+
+  const res = await fetch(CHAT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+    body: JSON.stringify({ model: CHAT_MODEL, messages, max_tokens: 300, temperature: personality === 'yaar' ? 0.85 : 0.5 })
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error?.message || `HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const reply = data.choices[0].message.content;
+  convHistory.push({ role: 'assistant', content: reply });
+  saveMemory();
+  return reply;
+}
+
+async function callSTT(audioBlob) {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.webm');
+  formData.append('model', STT_MODEL);
+  formData.append('language', 'en');
+
+  const res = await fetch(STT_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${GROQ_KEY}` },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error?.message || `STT error ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.text?.trim() || '';
+}
+
+// ── BROWSER TTS (Web Speech Synthesis) ──────────────
+let speechVoices = [];
+
+function loadVoices() {
+  if (!window.speechSynthesis) return;
+  speechVoices = window.speechSynthesis.getVoices();
+  populateVoiceSelect();
+}
+
+function populateVoiceSelect() {
+  const sel = document.getElementById('voice-select');
+  if (!sel) return;
+  sel.innerHTML = '';
+  if (speechVoices.length === 0) {
+    sel.innerHTML = '<option value="0">Default Voice</option>';
+    return;
+  }
+  const english = speechVoices.filter(v => v.lang.startsWith('en'));
+  const list = english.length > 0 ? english : speechVoices;
+  list.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = v.name + (v.localService ? ' ✓' : '');
+    sel.appendChild(opt);
+  });
+  const localIdx = list.findIndex(v => v.localService);
+  if (localIdx >= 0) sel.value = localIdx;
+}
+
+// Safe init — some browsers need the event, some have voices immediately
+if (window.speechSynthesis) {
+  if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+  loadVoices();
+  // Fallback: retry after short delay (some browsers are slow)
+  setTimeout(loadVoices, 500);
+}
+
+async function callTTS(text) {
+  return new Promise((resolve, reject) => {
+    if (!window.speechSynthesis) { resolve(null); return; }
+
+    let clean = text
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .replace(/\[.*?\]/g, '')
+      .replace(/\*.*?\*/g, '')
+      .trim();
+    if (!clean) { resolve(null); return; }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+
+    const sel = document.getElementById('voice-select');
+    const english = speechVoices.filter(v => v.lang.startsWith('en'));
+    const list = english.length > 0 ? english : speechVoices;
+    const voiceIdx = parseInt(sel?.value) || 0;
+    if (list[voiceIdx]) utterance.voice = list[voiceIdx];
+
+    utterance.rate   = 1.05;
+    utterance.pitch  = 1.0;
+    utterance.volume = 1.0;
+
+    utterance.onend   = () => resolve(null);
+    utterance.onerror = (e) => {
+      if (e.error === 'interrupted') { resolve(null); return; }
+      reject(new Error('Speech error: ' + e.error));
+    };
+
+    window.speechSynthesis.speak(utterance);
+    currentAudio = { pause: () => window.speechSynthesis.cancel() };
+  });
+}
+
+async function playAudio(url) {
+  if (url === null) return;
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = reject;
+    audio.play().catch(reject);
+  });
+}
+
+async function callTTS(text) {
+  return new Promise((resolve, reject) => {
+    // Clean text
+    let clean = text
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .replace(/\[.*?\]/g, '')
+      .replace(/\*.*?\*/g, '')
+      .trim();
+    if (!clean) { resolve(null); return; }
+
+    window.speechSynthesis.cancel(); // stop any ongoing speech
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+
+    // Pick selected voice
+    const sel = document.getElementById('voice-select');
+    const english = speechVoices.filter(v => v.lang.startsWith('en'));
+    const list = english.length > 0 ? english : speechVoices;
+    const voiceIdx = parseInt(sel.value) || 0;
+    if (list[voiceIdx]) utterance.voice = list[voiceIdx];
+
+    utterance.rate  = 1.05;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    utterance.onend   = () => resolve(null);
+    utterance.onerror = (e) => reject(new Error('Speech error: ' + e.error));
+
+    window.speechSynthesis.speak(utterance);
+
+    // Store ref so we can cancel it
+    currentAudio = { pause: () => window.speechSynthesis.cancel() };
+  });
+}
+
+// Override playAudio for browser TTS (callTTS handles playback directly)
+async function playAudio(url) {
+  if (url === null) return; // browser TTS already played inline
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = reject;
+    audio.play().catch(reject);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  MAIN CONVERSATION FLOW
+// ═══════════════════════════════════════════════════
+async function handleUserInput(text) {
+  if (!text || isBusy) return;
+  isBusy = true;
+  messageCount++;
+
+  // Add to chat UI
+  appendMsg('user', text);
+  document.getElementById('last-msg').textContent = text;
+  hideTranscript();
+
+  // Thinking state
+  setState('thinking');
+  setStatus('Thinking…');
+  const typingEl = showTyping();
+
+  try {
+    const reply = await callChat(text);
+    typingEl.remove();
+
+    appendMsg('ai', reply);
+    document.getElementById('last-msg').textContent = reply;
+
+    // Detect mood every 4 messages
+    if (messageCount % 4 === 0) detectMoodAsync();
+    // Auto notes
+    if (autoNotes && messageCount % 6 === 0) extractNotesAsync();
+
+    if (inputMode === 'voice' && voiceResp) {
+      setState('speaking');
+      setStatus('Speaking…');
+      try {
+        await callTTS(reply); // browser TTS plays inline, no URL returned
+      } catch(e) {
+        console.log('TTS error:', e);
+        showToast('⚠ Voice error: ' + e.message);
+      }
+    }
+
+    setState('idle');
+    setStatus(personality === 'yaar' ? 'Yaar Mode · Ready' : 'Focus Mode · Ready');
+
+    // Auto restart hands-free
+    if (handsFreeMod && inputMode === 'voice') {
+      setTimeout(() => { if (!isBusy) startHFListening(); }, 500);
+    }
+
+  } catch(err) {
+    typingEl.remove();
+    setState('idle');
+    setStatus('Error — Try again');
+    showToast('⚠ ' + (err.message || 'Something went wrong'));
+    convHistory.pop(); // remove failed user msg
+  }
+
+  isBusy = false;
+}
+
+async function playAudio(url) {
+  return new Promise((resolve, reject) => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = reject;
+    audio.play().catch(reject);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  RECORDING
+// ═══════════════════════════════════════════════════
+async function getStream() {
+  if (!audioStream || audioStream.getTracks().some(t => t.readyState === 'ended')) {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+  }
+  return audioStream;
+}
+
+async function startRecording(e) {
+  if (e) e.preventDefault();
+  if (isBusy || appState === 'listening') return;
+  if (inputMode !== 'voice') return;
+
+  try {
+    const stream = await getStream();
+    audioChunks = [];
+
+    const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+      .find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = processRecording;
+    mediaRecorder.start(100);
+
+    setState('listening');
+    setStatus('Listening…');
+
+    // Start visualizer
+    startVisualizer(stream);
+  } catch(err) {
+    showToast('Mic access denied. Please allow microphone.');
+    setState('idle');
+  }
+}
+
+async function stopRecording(e) {
+  if (e) e.preventDefault();
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+  if (appState !== 'listening') return;
+
+  stopVisualizer();
+  mediaRecorder.stop();
+}
+
+async function processRecording() {
+  if (audioChunks.length === 0) { setState('idle'); return; }
+
+  const blob = new Blob(audioChunks, { type: audioChunks[0]?.type || 'audio/webm' });
+  if (blob.size < 1000) { setState('idle'); setStatus(personality === 'yaar' ? 'Yaar Mode · Ready' : 'Focus Mode · Ready'); return; }
+
+  setState('thinking');
+  setStatus('Transcribing…');
+
+  try {
+    const text = await callSTT(blob);
+    if (!text) { setState('idle'); setStatus('Didn\'t catch that…'); return; }
+
+    showTranscript(text);
+    await handleUserInput(text);
+  } catch(err) {
+    setState('idle');
+    showToast('⚠ ' + err.message);
+  }
+}
+
+function orbTap() {
+  if (inputMode === 'voice') {
+    if (appState === 'speaking' && currentAudio) {
+      currentAudio.pause(); currentAudio = null;
+      setState('idle');
+      setStatus('Stopped.');
+      isBusy = false;
+    } else if (appState === 'idle' && !isBusy) {
+      showToast('Hold mic button to speak 🎙');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  HANDS-FREE MODE (VAD)
+// ═══════════════════════════════════════════════════
+async function toggleHandsFree() {
+  handsFreeMod = !handsFreeMod;
+  const btn = document.getElementById('hf-btn');
+  const ind = document.getElementById('hf-indicator');
+  const lbl = document.getElementById('hf-label');
+  const micBtn = document.getElementById('mic-btn');
+
+  if (handsFreeMod) {
+    btn.classList.add('active-mode');
+    ind.classList.add('active');
+    lbl.textContent = 'Hands-free On';
+    micBtn.style.opacity = '0.4';
+    showToast('Hands-free ON — Just start talking 🎙');
+    await startHFListening();
+  } else {
+    btn.classList.remove('active-mode');
+    ind.classList.remove('active');
+    lbl.textContent = 'Hands-free Off';
+    micBtn.style.opacity = '1';
+    stopHFListening();
+    showToast('Hands-free Off');
+  }
+}
+
+async function startHFListening() {
+  if (!handsFreeMod || isBusy) return;
+  try {
+    const stream = await getStream();
+    audioChunks = [];
+    hfSpeaking = false;
+    if (hfSilenceTimer) clearTimeout(hfSilenceTimer);
+
+    // VAD via analyser
+    if (!audioCtx || audioCtx.state === 'closed') audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 512;
+    source.connect(analyserNode);
+
+    const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+      .find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stopVisualizer();
+      await processRecording();
+    };
+    mediaRecorder.start(100);
+
+    setState('idle');
+    setStatus('Hands-free · Waiting…');
+
+    // Poll amplitude
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    hfTimer = setInterval(() => {
+      if (!analyserNode || isBusy) return;
+      analyserNode.getByteFrequencyData(data);
+      const avg = data.reduce((a,b) => a+b, 0) / data.length;
+
+      if (avg > SILENCE_THRESHOLD && !hfSpeaking) {
+        hfSpeaking = true;
+        if (hfSilenceTimer) clearTimeout(hfSilenceTimer);
+        setState('listening');
+        setStatus('Listening…');
+        startVisualizer(stream);
+      }
+
+      if (avg < SILENCE_THRESHOLD / 2 && hfSpeaking) {
+        if (!hfSilenceTimer) {
+          hfSilenceTimer = setTimeout(() => {
+            hfSpeaking = false;
+            hfSilenceTimer = null;
+            clearInterval(hfTimer);
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+          }, SILENCE_DURATION);
+        }
+      } else if (avg > SILENCE_THRESHOLD) {
+        if (hfSilenceTimer) { clearTimeout(hfSilenceTimer); hfSilenceTimer = null; }
+      }
+    }, 80);
+
+  } catch(err) {
+    showToast('Mic error: ' + err.message);
+    handsFreeMod = false;
+  }
+}
+
+function stopHFListening() {
+  if (hfTimer) { clearInterval(hfTimer); hfTimer = null; }
+  if (hfSilenceTimer) { clearTimeout(hfSilenceTimer); hfSilenceTimer = null; }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  stopVisualizer();
+  setState('idle');
+}
+
+// ═══════════════════════════════════════════════════
+//  AUDIO VISUALIZER
+// ═══════════════════════════════════════════════════
+let vizAnim = null;
+let vizAnalyser = null;
+
+function startVisualizer(stream) {
+  const canvas = document.getElementById('orb-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = canvas.offsetHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  const cx = w/2, cy = h/2;
+  const r = Math.min(w,h) * 0.35;
+
+  try {
+    if (!audioCtx || audioCtx.state === 'closed') audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(stream);
+    vizAnalyser = audioCtx.createAnalyser();
+    vizAnalyser.fftSize = 64;
+    src.connect(vizAnalyser);
+  } catch(e) { return; }
+
+  const data = new Uint8Array(vizAnalyser.frequencyBinCount);
+
+  function draw() {
+    vizAnim = requestAnimationFrame(draw);
+    vizAnalyser.getByteFrequencyData(data);
+    ctx.clearRect(0, 0, w, h);
+
+    const bars = 32;
+    for (let i = 0; i < bars; i++) {
+      const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+      const val = data[i] / 255;
+      const barH = r * 0.15 + val * r * 0.4;
+
+      const x1 = cx + Math.cos(angle) * r;
+      const y1 = cy + Math.sin(angle) * r;
+      const x2 = cx + Math.cos(angle) * (r + barH);
+      const y2 = cy + Math.sin(angle) * (r + barH);
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = `rgba(255,255,255,${0.3 + val * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  }
+  draw();
+}
+
+function stopVisualizer() {
+  if (vizAnim) { cancelAnimationFrame(vizAnim); vizAnim = null; }
+  const canvas = document.getElementById('orb-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ═══════════════════════════════════════════════════
+//  CHAT MODE
+// ═══════════════════════════════════════════════════
+async function sendChatMsg() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text || isBusy) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  await handleUserInput(text);
+}
+
+function chatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMsg();
+  }
+}
+
+function resizeChatInput(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ═══════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════
+function setState(s) {
+  appState = s;
+  document.body.setAttribute('data-state', s);
+}
+
+function setStatus(text) {
+  document.getElementById('status-line').textContent = text;
+}
+
+function appendMsg(role, text) {
+  const container = document.getElementById('chat-messages');
+  const empty = document.getElementById('chat-empty');
+  if (empty) empty.remove();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+
+  const time = document.createElement('div');
+  time.className = 'msg-time';
+  time.textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+  wrap.appendChild(bubble);
+  wrap.appendChild(time);
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ai';
+  wrap.id = 'typing-el';
+  const bubble = document.createElement('div');
+  bubble.className = 'typing-bubble';
+  [1,2,3].forEach(() => {
+    const d = document.createElement('div');
+    d.className = 't-dot';
+    bubble.appendChild(d);
+  });
+  wrap.appendChild(bubble);
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+  return wrap;
+}
+
+function showTranscript(text) {
+  const el = document.getElementById('transcript-pop');
+  el.textContent = '"' + text + '"';
+  el.classList.add('show');
+}
+
+function hideTranscript() {
+  document.getElementById('transcript-pop').classList.remove('show');
+}
+
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function clearChat() {
+  const c = document.getElementById('chat-messages');
+  c.innerHTML = '<div class="chat-empty-state" id="chat-empty"><div class="e-icon">✦</div><div>Start talking or typing.<br/>Zeno is ready.</div></div>';
+}
+
+// ═══════════════════════════════════════════════════
+//  MODE TOGGLES
+// ═══════════════════════════════════════════════════
+function setMode(mode, btn) {
+  personality = mode;
+  document.querySelectorAll('#personality-toggle .toggle-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  setStatus(mode === 'yaar' ? 'Yaar Mode · Ready' : 'Focus Mode · Ready');
+  saveMemory();
+}
+
+function setInputMode(mode, btn) {
+  inputMode = mode;
+  document.querySelectorAll('#input-toggle .toggle-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (mode === 'chat') {
+    document.body.classList.add('chat-mode');
+    if (handsFreeMod) { handsFreeMod = false; stopHFListening(); }
+    setTimeout(() => document.getElementById('chat-input').focus(), 100);
+  } else {
+    document.body.classList.remove('chat-mode');
+  }
+}
+
+function toggleAutoNotes() {
+  autoNotes = !autoNotes;
+  document.getElementById('auto-notes-label').textContent = autoNotes ? 'ON' : 'OFF';
+  saveMemory();
+  showToast('Auto notes: ' + (autoNotes ? 'ON' : 'OFF'));
+}
+
+function toggleVoiceResp() {
+  voiceResp = !voiceResp;
+  document.getElementById('voice-resp-label').textContent = voiceResp ? 'ON' : 'OFF';
+  saveMemory();
+  showToast('Voice response: ' + (voiceResp ? 'ON' : 'OFF'));
+}
+
+// ═══════════════════════════════════════════════════
+//  OVERLAYS
+// ═══════════════════════════════════════════════════
+function openOverlay(name) {
+  if (name === 'notes') renderNotes();
+  if (name === 'mood') renderMoodLog();
+  if (name === 'settings') updateMemoryInfo();
+  document.getElementById('overlay-' + name).classList.add('open');
+}
+
+function closeOverlay(name) {
+  document.getElementById('overlay-' + name).classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════
+//  NOTES
+// ═══════════════════════════════════════════════════
+async function extractNotesAsync() {
+  if (!autoNotes || convHistory.length < 4) return;
+  const last = convHistory.slice(-8);
+  try {
+    const res = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        messages: [
+          { role: 'system', content: 'Extract 0-2 specific important things (facts, decisions, tasks) worth remembering from this conversation. Return ONLY a JSON array of strings. If nothing important, return []. No markdown.' },
+          { role: 'user', content: JSON.stringify(last) }
+        ],
+        max_tokens: 200, temperature: 0.3
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const raw = data.choices[0].message.content.replace(/```json|```/g,'').trim();
+    const extracted = JSON.parse(raw);
+    if (Array.isArray(extracted) && extracted.length > 0) {
+      const timestamp = new Date().toLocaleString([], {dateStyle:'short', timeStyle:'short'});
+      extracted.forEach(note => notes.unshift({ text: note, time: timestamp }));
+      if (notes.length > 50) notes = notes.slice(0, 50);
+      saveMemory();
+    }
+  } catch(e) {}
+}
+
+function renderNotes() {
+  const body = document.getElementById('notes-body');
+  if (notes.length === 0) {
+    body.innerHTML = '<div class="empty-notes">No notes yet.<br/>Zeno will auto-save important things from your conversations.</div>';
+    return;
+  }
+  body.innerHTML = notes.map((n, i) => `
+    <div class="note-item">
+      <div class="note-time">${n.time}</div>
+      <div>${n.text}</div>
+      <span class="note-del" onclick="deleteNote(${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+function deleteNote(i) {
+  notes.splice(i, 1);
+  saveMemory();
+  renderNotes();
+}
+
+// ═══════════════════════════════════════════════════
+//  MOOD TRACKING
+// ═══════════════════════════════════════════════════
+const MOOD_MAP = {
+  happy: '😄', excited: '🤩', chill: '😎', neutral: '😐',
+  stressed: '😟', tired: '😴', focused: '🎯', sad: '😢', frustrated: '😤'
+};
+
+async function detectMoodAsync() {
+  const last = convHistory.slice(-6);
+  try {
+    const res = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        messages: [
+          { role: 'system', content: `Detect the user's mood from this conversation. Return ONLY one word from: happy, excited, chill, neutral, stressed, tired, focused, sad, frustrated. Nothing else.` },
+          { role: 'user', content: JSON.stringify(last) }
+        ],
+        max_tokens: 10, temperature: 0.3
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const mood = data.choices[0].message.content.trim().toLowerCase();
+    if (MOOD_MAP[mood]) {
+      moodLog.unshift({
+        mood, emoji: MOOD_MAP[mood],
+        time: new Date().toLocaleString([], {dateStyle:'short', timeStyle:'short'})
+      });
+      if (moodLog.length > 30) moodLog = moodLog.slice(0, 30);
+      saveMemory();
+    }
+  } catch(e) {}
+}
+
+function renderMoodLog() {
+  const body = document.getElementById('mood-body');
+  if (moodLog.length === 0) {
+    body.innerHTML = '<div class="empty-notes">No mood data yet.<br/>Zeno tracks your vibe as you chat.</div>';
+    return;
+  }
+  body.innerHTML = moodLog.map(m => `
+    <div class="mood-item">
+      <div class="mood-emoji">${m.emoji}</div>
+      <div class="mood-info">
+        <div class="mood-label">${m.mood.charAt(0).toUpperCase() + m.mood.slice(1)}</div>
+        <div class="mood-date">${m.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadMemory();
+
+  // Restore chat history in UI
+  if (convHistory.length > 0) {
+    const recent = convHistory.slice(-10);
+    recent.forEach(msg => {
+      if (msg.role !== 'system') appendMsg(msg.role === 'user' ? 'user' : 'ai', msg.content);
+    });
+    const lastAI = convHistory.filter(m => m.role === 'assistant').pop();
+    if (lastAI) document.getElementById('last-msg').textContent = lastAI.content;
+  }
+
+  // Prevent scroll bounce on iOS
+  document.body.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+  // Resize canvas on orb resize
+  const orb = document.getElementById('orb');
+  const canvas = document.getElementById('orb-canvas');
+  const resizeCanvas = () => {
+    canvas.width = orb.offsetWidth * 0.8 * devicePixelRatio;
+    canvas.height = orb.offsetHeight * 0.8 * devicePixelRatio;
+  };
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // Welcome message for first time
+  if (convHistory.length === 0) {
+    setTimeout(() => showToast('Hey! Hold the mic button to talk to Zeno 🎙'), 1200);
+  }
+});
+</script>
+</body>
+</html>
